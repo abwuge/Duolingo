@@ -1,0 +1,7 @@
+/.internal/
+/build/
+/node_modules/
+/out/
+/declarations/
+/autojs6-dts/
+/test/
