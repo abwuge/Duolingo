@@ -35,7 +35,7 @@ const Logger = {
     fatal: function (msg) {
         log("[FATAL] " + msg);
         throw new Error(msg);
-    }
+    },
 };
 
 // 运行时统计
@@ -44,6 +44,17 @@ let startTime = new Date();
 // 工具函数
 function clickById(buttonId, timeout = CONFIG.timeout) {
     let button = id(buttonId).findOne(timeout);
+    if (button) {
+        button.click();
+        sleep(CONFIG.optionDelay);
+        return true;
+    } else {
+        Logger.error(`未找到按钮${buttonId}`);
+        return false;
+    }
+}
+
+function clickButton(button, buttonId = '') {
     if (button) {
         button.click();
         sleep(CONFIG.optionDelay);
@@ -66,10 +77,12 @@ function waitForByText(text, timeout = CONFIG.timeout) {
 }
 
 function startApp() {
+    app.launchApp("org.autojs.autojs6");
+    sleep(CONFIG.optionDelay);
     app.launch("com.duolingo");
     app.startActivity({
         packageName: "com.duolingo",
-        className: "com.duolingo.splash.LaunchActivity"
+        className: "com.duolingo.splash.LaunchActivity",
     });
     sleep(CONFIG.optionDelay);
 }
@@ -77,6 +90,28 @@ function startApp() {
 function clickBack() {
     back();
     sleep(CONFIG.optionDelay);
+}
+
+function clickContinueButton(timeout = CONFIG.timeout) {
+    let threadsArray = [];
+
+    threadsArray.push(
+        threads.start(function () {
+            let button = id("continueButtonYellowStub").findOne(timeout).firstChild();
+            threadsInterrupt(threadsArray, this);
+            clickButton(button);
+        })
+    );
+
+    threadsArray.push(
+        threads.start(function () {
+            let button = id("continueButtonRedStub").findOne(timeout).firstChild();
+            threadsInterrupt(threadsArray, this);
+            clickButton(button);
+        })
+    );
+
+    threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
 }
 
 // 功能函数
@@ -123,7 +158,10 @@ function checkAndEnableListenPractice() {
 }
 
 function enableListenPractice() {
-    if (clickById("listenReviewCard") && (clickById("practiceHubTurnOnButton") || clickBack())) {
+    if (
+        clickById("listenReviewCard") &&
+        (clickById("practiceHubTurnOnButton") || clickBack())
+    ) {
         Logger.info("成功启用听力练习");
         return true;
     }
@@ -132,7 +170,7 @@ function enableListenPractice() {
 }
 
 function threadsInterrupt(threadsArray, currentThread) {
-    threadsArray.forEach(thread => {
+    threadsArray.forEach((thread) => {
         if (thread != currentThread) {
             thread.interrupt();
         }
@@ -144,62 +182,72 @@ function returnToPracticeHub() {
 
     let threadsArray = [];
 
-    threadsArray.push(threads.start(function () {
-        clickById("tabLeagues");
-        threadsInterrupt(threadsArray, this);
-        clickById("tabPracticeHub");
-    }));
+    threadsArray.push(
+        threads.start(function () {
+            clickById("tabLeagues");
+            threadsInterrupt(threadsArray, this);
+            clickById("tabPracticeHub");
+        })
+    );
 
-    threadsArray.push(threads.start(function () {
-        clickById("primaryButton");
-        threadsInterrupt(threadsArray, this);
-        clickById("tabLeagues");
-        clickById("tabPracticeHub");
-    }));
+    threadsArray.push(
+        threads.start(function () {
+            clickById("primaryButton");
+            threadsInterrupt(threadsArray, this);
+            clickById("tabLeagues");
+            clickById("tabPracticeHub");
+        })
+    );
 
-    threadsArray.push(threads.start(function () {
-        clickById("primaryButton");
-        clickById("primaryButton");
-        threadsInterrupt(threadsArray, this);
-        clickById("tabLeagues");
-        clickById("tabPracticeHub");
-    }));
+    threadsArray.push(
+        threads.start(function () {
+            clickById("primaryButton");
+            clickById("primaryButton");
+            threadsInterrupt(threadsArray, this);
+            clickById("tabLeagues");
+            clickById("tabPracticeHub");
+        })
+    );
 
-    threadsArray.push(threads.start(function () {
-        clickById("primaryButton");
-        clickById("primaryButton");
-        clickById("primaryButton");
-        threadsInterrupt(threadsArray, this);
-        clickById("tabLeagues");
-        clickById("tabPracticeHub");
-    }));
+    threadsArray.push(
+        threads.start(function () {
+            clickById("primaryButton");
+            clickById("primaryButton");
+            clickById("primaryButton");
+            threadsInterrupt(threadsArray, this);
+            clickById("tabLeagues");
+            clickById("tabPracticeHub");
+        })
+    );
 
-    threadsArray.forEach(thread => thread.join(CONFIG.timeout));
+    threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
 
     if (!clickById("tabPracticeHub")) {
         Logger.warn("返回练习中心超时，通过重启应用返回");
         startApp();
         let threadsArray = [];
 
-        threadsArray.push(threads.start(function () {
-            clickById("tabPracticeHub");
-            threadsInterrupt(threadsArray, this);
-        }));
+        threadsArray.push(
+            threads.start(function () {
+                clickById("tabPracticeHub");
+                threadsInterrupt(threadsArray, this);
+            })
+        );
 
-        threadsArray.push(threads.start(function () {
-            clickBack();
-            clickBack();
-            clickById("tabPracticeHub");
-            threadsInterrupt(threadsArray, this);
-        }));
+        threadsArray.push(
+            threads.start(function () {
+                clickBack();
+                clickBack();
+                clickById("tabPracticeHub");
+                threadsInterrupt(threadsArray, this);
+            })
+        );
 
-        threadsArray.forEach(thread => thread.join(CONFIG.timeout));
+        threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
 
         if (!clickById("tabPracticeHub")) {
             Logger.fatal("程序无法返回练习中心！");
-        }
-        else
-            Logger.info("已返回练习中心");
+        } else Logger.info("已返回练习中心");
     }
 
     return clickById("tabPracticeHub");
@@ -228,8 +276,7 @@ function clickStartButton() {
 
 function clickDisableListenButton(isFirst = true) {
     if (!clickById("disableListenButton")) {
-        if (!isFirst)
-            Logger.fatal("无法找到禁用听力按钮");
+        if (!isFirst) Logger.fatal("无法找到禁用听力按钮");
 
         Logger.error("无法找到禁用听力按钮，回到练习中心");
         returnToPracticeHub();
@@ -263,7 +310,9 @@ function checkAndStartMistakesPractice() {
     let completed = false;
 
     let thread1 = threads.start(function () {
-        let mistakesAllDone = id("mistakesTitle").textContains("所有错题都重练过了！").findOne(CONFIG.timeout);
+        let mistakesAllDone = id("mistakesTitle")
+            .textContains("所有错题都重练过了！")
+            .findOne(CONFIG.timeout);
         if (mistakesAllDone && !completed) {
             completed = true;
             result = false;
@@ -284,7 +333,7 @@ function checkAndStartMistakesPractice() {
 
             clickById("coachContinueButton");
             clickDisableListenButton();
-            clickById("continueButtonYellow");
+            clickContinueButton();
             clickById("continueButtonView");
 
             returnToPracticeHub();
@@ -300,8 +349,7 @@ function checkAndStartMistakesPractice() {
         thread2.interrupt();
     }
 
-    while (result && goal > 0)
-        mistakesPractice();
+    while (result && goal > 0) mistakesPractice();
 
     return result;
 }
@@ -316,7 +364,7 @@ function mistakesPractice() {
 
     clickById("coachContinueButton");
     clickDisableListenButton();
-    clickById("continueButtonYellow");
+    clickContinueButton();
     clickById("continueButtonView");
 
     returnToPracticeHub();
@@ -334,23 +382,33 @@ function setGoal() {
     }
 
     try {
+        // 尝试查找用户的经验值
+        let userScoreText = id("usernameView")
+            .text(CONFIG.username)
+            .findOne(CONFIG.timeout);
+        if (!userScoreText) {
+            throw new Error("未找到用户信息");
+        }
+        userScoreText = userScoreText
+            .parent()
+            .parent()
+            .parent()
+            .findOne(id("xpView"))
+            .text();
+
         // 尝试查找第一名的经验值
         let rankFirstScoreText = id("rankView").text("1").findOne(CONFIG.timeout);
         if (!rankFirstScoreText) {
             throw new Error("未找到第一名信息");
         }
-        rankFirstScoreText = rankFirstScoreText.parent().findOne(id("xpView")).text();
-
-        // 尝试查找用户的经验值
-        let userScoreText = id("usernameView").text(CONFIG.username).findOne(CONFIG.timeout);
-        if (!userScoreText) {
-            throw new Error("未找到用户信息");
-        }
-        userScoreText = userScoreText.parent().parent().parent().findOne(id("xpView")).text();
+        rankFirstScoreText = rankFirstScoreText
+            .parent()
+            .findOne(id("xpView"))
+            .text();
 
         // 解析经验值
-        let rankFirstScore = parseInt(rankFirstScoreText.match(/(\d+) 经验/)[1]);
         let userScore = parseInt(userScoreText.match(/(\d+) 经验/)[1]);
+        let rankFirstScore = parseInt(rankFirstScoreText.match(/(\d+) 经验/)[1]);
 
         // 计算目标
         goal = rankFirstScore - userScore;
