@@ -118,6 +118,42 @@ function clickContinueButton(timeout = CONFIG.timeout) {
     threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
 }
 
+function clickClaimXPButton(timeout = CONFIG.timeout) {
+    let toasted = false;
+    let clickedContinue = false;
+    for (let i = 0; i < 10; ++i) {
+        let threadsArray = [];
+
+        threadsArray.push(
+            threads.start(function () {
+                let button = id("continueButtonView").findOne(timeout);
+                threadsInterrupt(threadsArray, threads.currentThread());
+                clickButton(button);
+                clickedContinue = true;
+            })
+        );
+
+        threadsArray.push(
+            threads.start(function () {
+                let button = id("disableListenButton").findOne(timeout);
+                threadsInterrupt(threadsArray, threads.currentThread());
+                clickButton(button);
+                toasted(
+                    "警告：禁用听力练习后仍然未停止练习，建议清除Duolingo后台并再次运行脚本！",
+                    "l",
+                    "f"
+                );
+                toasted = true;
+                clickContinueButton();
+            })
+        );
+
+        threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
+
+        if (clickedContinue) break;
+    }
+}
+
 // 功能函数
 function checkAndEnableListenPractice() {
     Logger.info("检测是否启用听力练习");
@@ -216,10 +252,10 @@ function enterPracticeHub() {
 function returnToPracticeHub() {
     Logger.info("返回练习基地");
 
+    let clickedBack = false;
     for (let i = 0; i < 10; ++i) {
         let threadsArray = [];
 
-        let clickedBack = false;
         threadsArray.push(
             threads.start(function () {
                 clickById("primaryButton");
@@ -360,7 +396,7 @@ function checkAndStartMistakesPractice() {
                 clickById("coachContinueButton");
                 clickDisableListenButton();
                 clickContinueButton();
-                clickById("continueButtonView");
+                clickClaimXPButton();
                 returnToPracticeHub();
             }
         })
@@ -388,7 +424,7 @@ function mistakesPractice() {
     clickById("coachContinueButton");
     clickDisableListenButton();
     clickContinueButton();
-    clickById("continueButtonView");
+    clickClaimXPButton();
     returnToPracticeHub();
 
     return true;
