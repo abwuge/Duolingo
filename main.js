@@ -1,11 +1,12 @@
 // Duolingo自动刷经验脚本
 // 配置部分
+// prettier-ignore
 const CONFIG = {
-    timeout: 5000,        // 查找元素的超时时间(毫秒)
-    username: "abwuge",   // 用户名
-    initialGoal: 0,       // 初始目标经验值(0表示自动从排行榜获取)
-    logLevel: "info",     // 日志级别: "debug", "info", "warn", "error"
-    optionDelay: 200      // 操作延时(毫秒)，防止操作过快
+    timeout: 5000,      // 查找元素的超时时间(毫秒)
+    username: "abwuge", // 用户名
+    initialGoal: 0,     // 初始目标经验值(0表示自动从排行榜获取)
+    logLevel: "info",   // 日志级别: "debug", "info", "warn", "error"
+    optionDelay: 200    // 操作延时(毫秒)，防止操作过快
 };
 
 let goal = CONFIG.initialGoal;
@@ -54,7 +55,7 @@ function clickById(buttonId, timeout = CONFIG.timeout) {
     }
 }
 
-function clickButton(button, buttonId = '') {
+function clickButton(button, buttonId = "") {
     if (button) {
         button.click();
         sleep(CONFIG.optionDelay);
@@ -78,6 +79,10 @@ function waitForByText(text, timeout = CONFIG.timeout) {
 
 function startApp() {
     app.launchApp("org.autojs.autojs6");
+    app.startActivity({
+        packageName: "org.autojs.autojs6",
+        className: "org.autojs.autojs.ui.main.MainActivity",
+    });
     sleep(CONFIG.optionDelay);
     app.launch("com.duolingo");
     app.startActivity({
@@ -87,26 +92,25 @@ function startApp() {
     sleep(CONFIG.optionDelay);
 }
 
-function clickBack() {
-    back();
-    sleep(CONFIG.optionDelay);
-}
-
 function clickContinueButton(timeout = CONFIG.timeout) {
     let threadsArray = [];
 
     threadsArray.push(
         threads.start(function () {
-            let button = id("continueButtonYellowStub").findOne(timeout).firstChild();
-            threadsInterrupt(threadsArray, this);
+            let button = id("continueButtonYellowStub")
+                .findOne(timeout)
+                .firstChild();
+            threadsInterrupt(threadsArray, threads.currentThread());
             clickButton(button);
         })
     );
 
     threadsArray.push(
         threads.start(function () {
-            let button = id("continueButtonRedStub").findOne(timeout).firstChild();
-            threadsInterrupt(threadsArray, this);
+            let button = id("continueButtonRedStub")
+                .findOne(timeout)
+                .firstChild();
+            threadsInterrupt(threadsArray, threads.currentThread());
             clickButton(button);
         })
     );
@@ -125,33 +129,40 @@ function checkAndEnableListenPractice() {
 
     let completed = false;
 
-    let thread1 = threads.start(function () {
-        let continueButton = id("coachContinueButton").findOne(CONFIG.timeout);
-        if (continueButton && !completed) {
-            thread2.interrupt();
-            clickBack();
-            Logger.info("听力练习已启用");
-            completed = true;
-        }
-    });
+    let threadsArray = [];
 
-    let thread2 = threads.start(function () {
-        let turnOnButton = id("practiceHubTurnOnButton").findOne(CONFIG.timeout);
-        if (turnOnButton && !completed) {
-            thread1.interrupt();
-            turnOnButton.click();
-            Logger.info("听力练习未启用，已启用");
-            completed = true;
-        }
-    });
+    threadsArray.push(
+        threads.start(function () {
+            let continueButton = id("coachContinueButton").findOne(
+                CONFIG.timeout
+            );
+            if (continueButton && !completed) {
+                threadsInterrupt(threadsArray, threads.currentThread());
+                clickById("quitButton");
+                Logger.info("听力练习已启用");
+                completed = true;
+            }
+        })
+    );
 
-    thread1.join(CONFIG.timeout);
-    thread2.join(CONFIG.timeout);
+    threadsArray.push(
+        threads.start(function () {
+            let turnOnButton = id("practiceHubTurnOnButton").findOne(
+                CONFIG.timeout
+            );
+            if (turnOnButton && !completed) {
+                threadsInterrupt(threadsArray, threads.currentThread());
+                turnOnButton.click();
+                Logger.info("听力练习未启用，已启用");
+                completed = true;
+            }
+        })
+    );
+
+    threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
 
     if (!completed) {
         Logger.warn("检查听力练习状态超时");
-        thread1.interrupt();
-        thread2.interrupt();
     }
 
     return completed;
@@ -160,7 +171,7 @@ function checkAndEnableListenPractice() {
 function enableListenPractice() {
     if (
         clickById("listenReviewCard") &&
-        (clickById("practiceHubTurnOnButton") || clickBack())
+        (clickById("practiceHubTurnOnButton") || clickById("quitButton"))
     ) {
         Logger.info("成功启用听力练习");
         return true;
@@ -171,90 +182,92 @@ function enableListenPractice() {
 
 function threadsInterrupt(threadsArray, currentThread) {
     threadsArray.forEach((thread) => {
-        if (thread != currentThread) {
+        if (thread.id != currentThread.id) {
             thread.interrupt();
         }
     });
 }
 
-function returnToPracticeHub() {
-    Logger.info("返回练习中心");
+function enterPracticeHub() {
+    Logger.info("进入练习基地");
 
     let threadsArray = [];
 
+    // 方式1：练习基地位于溢出菜单
     threadsArray.push(
         threads.start(function () {
-            clickById("tabLeagues");
-            threadsInterrupt(threadsArray, this);
-            clickById("tabPracticeHub");
+            clickById("overflowTab");
+            threadsInterrupt(threadsArray, threads.currentThread());
+            clickById("tabOverflowPracticeHubBackground");
         })
     );
 
+    // 方式2：练习基地位于底部导航栏
     threadsArray.push(
         threads.start(function () {
-            clickById("primaryButton");
-            threadsInterrupt(threadsArray, this);
-            clickById("tabLeagues");
             clickById("tabPracticeHub");
-        })
-    );
-
-    threadsArray.push(
-        threads.start(function () {
-            clickById("primaryButton");
-            clickById("primaryButton");
-            threadsInterrupt(threadsArray, this);
-            clickById("tabLeagues");
-            clickById("tabPracticeHub");
-        })
-    );
-
-    threadsArray.push(
-        threads.start(function () {
-            clickById("primaryButton");
-            clickById("primaryButton");
-            clickById("primaryButton");
-            threadsInterrupt(threadsArray, this);
-            clickById("tabLeagues");
-            clickById("tabPracticeHub");
+            threadsInterrupt(threadsArray, threads.currentThread());
         })
     );
 
     threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
+}
 
-    if (!clickById("tabPracticeHub")) {
-        Logger.warn("返回练习中心超时，通过重启应用返回");
-        startApp();
+function returnToPracticeHub() {
+    Logger.info("返回练习基地");
+
+    for (let i = 0; i < 10; ++i) {
         let threadsArray = [];
 
+        let clickedBack = false;
         threadsArray.push(
             threads.start(function () {
-                clickById("tabPracticeHub");
-                threadsInterrupt(threadsArray, this);
+                clickById("primaryButton");
+                threadsInterrupt(threadsArray, threads.currentThread());
             })
         );
 
         threadsArray.push(
             threads.start(function () {
-                clickBack();
-                clickBack();
-                clickById("tabPracticeHub");
-                threadsInterrupt(threadsArray, this);
+                clickById("nonSessionEndContinueButton");
+                threadsInterrupt(threadsArray, threads.currentThread());
+            })
+        );
+
+        threadsArray.push(
+            threads.start(function () {
+                clickById("back");
+                threadsInterrupt(threadsArray, threads.currentThread());
+                clickedBack = true;
             })
         );
 
         threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
 
-        if (!clickById("tabPracticeHub")) {
-            Logger.fatal("程序无法返回练习中心！");
-        } else Logger.info("已返回练习中心");
+        if (clickedBack) break;
     }
 
-    return clickById("tabPracticeHub");
+    if (!waitForByText("今天的复习内容")) {
+        Logger.warn("返回练习基地超时，通过重启应用返回");
+        startApp();
+
+        enterPracticeHub();
+
+        if (!waitForByText("今天的复习内容")) {
+            Logger.fatal("程序无法返回练习基地！");
+        } else Logger.info("已返回练习基地");
+    }
+
+    return true;
 }
 
 function clickStartButton() {
-    let startButton = id("startButton").findOne(CONFIG.timeout);
+    // 在mistakesCollection中寻找，避免点击到todayReviewCard中的startButton
+    let mistakesCollection = id("mistakesCollection").findOne(CONFIG.timeout);
+    let startButton = null;
+    if (mistakesCollection) {
+        startButton = mistakesCollection.findOne(id("startButton"));
+    }
     if (!startButton) {
         Logger.error("未找到开始按钮");
         return 0;
@@ -278,7 +291,7 @@ function clickDisableListenButton(isFirst = true) {
     if (!clickById("disableListenButton")) {
         if (!isFirst) Logger.fatal("无法找到禁用听力按钮");
 
-        Logger.error("无法找到禁用听力按钮，回到练习中心");
+        Logger.error("无法找到禁用听力按钮，回到练习基地");
         returnToPracticeHub();
 
         enableListenPractice();
@@ -304,49 +317,59 @@ function checkAndStartMistakesPractice() {
 
     if (!waitForByText(".*道错题")) {
         Logger.error("无法确认是否进入错题本页面");
-        return false;
+        return result;
     }
 
     let completed = false;
 
-    let thread1 = threads.start(function () {
-        let mistakesAllDone = id("mistakesTitle")
-            .textContains("所有错题都重练过了！")
-            .findOne(CONFIG.timeout);
-        if (mistakesAllDone && !completed) {
-            completed = true;
-            result = false;
-            thread2.interrupt();
-            Logger.info("所有错题都重练过了，无法通过错题本获取经验！");
-        }
-    });
+    let threadsArray = [];
 
-    let thread2 = threads.start(function () {
-        let startButton = id("startButton").findOne(CONFIG.timeout);
-        if (startButton && !completed) {
-            completed = true;
-            result = true;
-            thread1.interrupt();
-            Logger.info("开始错题练习");
+    threadsArray.push(
+        threads.start(function () {
+            let mistakesAllDone = id("mistakesTitle")
+                .textContains("所有错题都重练过了！")
+                .findOne(CONFIG.timeout);
+            if (mistakesAllDone && !completed) {
+                completed = true;
+                result = false;
+                threadsInterrupt(threadsArray, threads.currentThread());
+                Logger.info("所有错题都重练过了，无法通过错题本获取经验！");
+            }
+        })
+    );
 
-            clickStartButton();
+    threadsArray.push(
+        threads.start(function () {
+            // 在mistakesCollection中寻找，避免点击到todayReviewCard中的startButton
+            let mistakesCollection = id("mistakesCollection").findOne(
+                CONFIG.timeout
+            );
+            let startButton = null;
+            if (mistakesCollection) {
+                startButton = mistakesCollection.findOne(id("startButton"));
+            }
 
-            clickById("coachContinueButton");
-            clickDisableListenButton();
-            clickContinueButton();
-            clickById("continueButtonView");
+            if (startButton && !completed) {
+                completed = true;
+                result = true;
+                threadsInterrupt(threadsArray, threads.currentThread());
+                Logger.info("开始错题练习");
 
-            returnToPracticeHub();
-        }
-    });
+                clickStartButton();
 
-    thread1.join(CONFIG.timeout);
-    thread2.join(CONFIG.timeout);
+                clickById("coachContinueButton");
+                clickDisableListenButton();
+                clickContinueButton();
+                clickById("continueButtonView");
+                returnToPracticeHub();
+            }
+        })
+    );
+
+    threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
 
     if (!completed) {
         Logger.warn("检查错题本状态超时");
-        thread1.interrupt();
-        thread2.interrupt();
     }
 
     while (result && goal > 0) mistakesPractice();
@@ -366,7 +389,6 @@ function mistakesPractice() {
     clickDisableListenButton();
     clickContinueButton();
     clickById("continueButtonView");
-
     returnToPracticeHub();
 
     return true;
@@ -397,7 +419,21 @@ function setGoal() {
             .text();
 
         // 尝试查找第一名的经验值
-        let rankFirstScoreText = id("rankView").text("1").findOne(CONFIG.timeout);
+        let rankFirstScoreText = null;
+        for (let i = 0; i < 10; i++) {
+            swipe(
+                device.width / 2,
+                device.height * 0.4,
+                device.width / 2,
+                device.height * 0.8,
+                CONFIG.optionDelay
+            );
+            sleep(CONFIG.optionDelay);
+            rankFirstScoreText = id("rankView").text("1").findOne(1000);
+            if (rankFirstScoreText) {
+                break;
+            }
+        }
         if (!rankFirstScoreText) {
             throw new Error("未找到第一名信息");
         }
@@ -408,7 +444,9 @@ function setGoal() {
 
         // 解析经验值
         let userScore = parseInt(userScoreText.match(/(\d+) 经验/)[1]);
-        let rankFirstScore = parseInt(rankFirstScoreText.match(/(\d+) 经验/)[1]);
+        let rankFirstScore = parseInt(
+            rankFirstScoreText.match(/(\d+) 经验/)[1]
+        );
 
         // 计算目标
         goal = rankFirstScore - userScore;
@@ -428,7 +466,7 @@ function setGoal() {
         Logger.info("设置默认目标经验值: 1000");
     }
 
-    clickById("tabPracticeHub");
+    enterPracticeHub();
 
     return true;
 }
@@ -460,15 +498,14 @@ function main() {
     if (goal <= 0) {
         setGoal();
     } else {
-        clickById("tabPracticeHub");
+        enterPracticeHub();
     }
 
     // 主循环
-    let loopCount = 0;
-    let maxLoops = 100; // 防止无限循环
+    // let loopCount = 0;
+    let maxLoops = 10; // 防止无限循环
 
-    while (goal > 0 && loopCount < maxLoops) {
-        loopCount++;
+    for (let loopCount = 1; goal > 0 && loopCount < maxLoops; ++loopCount) {
         Logger.info(`循环 ${loopCount}/${maxLoops}, 剩余目标: ${goal}`);
 
         // 检查并启用听力练习
@@ -476,6 +513,7 @@ function main() {
 
         // 开始错题练习
         checkAndStartMistakesPractice();
+
         // 检查目标是否达成
         if (goal <= 0) {
             if (goalFromRank) {
@@ -496,7 +534,7 @@ function main() {
         }
     }
 
-    if (loopCount >= maxLoops) {
+    if (loopCount == maxLoops) {
         Logger.warn(`达到最大循环次数 ${maxLoops}，自动退出`);
     }
     // 最终统计
