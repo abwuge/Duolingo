@@ -264,6 +264,13 @@ function returnToPracticeHub() {
 
         threadsArray.push(
             threads.start(function () {
+                clickById("secondaryButton");
+                threadsInterrupt(threadsArray, threads.currentThread());
+            })
+        );
+
+        threadsArray.push(
+            threads.start(function () {
                 clickById("nonSessionEndContinueButton");
                 threadsInterrupt(threadsArray, threads.currentThread());
             })
@@ -323,7 +330,34 @@ function clickStartButton() {
 }
 
 function clickDisableListenButton(isFirst = true) {
-    if (!clickById("disableListenButton")) {
+    let threadsArray = [];
+    let result = false;
+
+    threadsArray.push(
+        threads.start(function () {
+            result = clickById("disableListenButton");
+            threadsInterrupt(threadsArray, threads.currentThread());
+        })
+    );
+
+    // 防止输入法自动弹出后挡住按钮
+    threadsArray.push(
+        threads.start(function () {
+            sleep(CONFIG.optionDelay);
+            let editText = id("textInput").findOne(CONFIG.timeout);
+            threadsInterrupt(threadsArray, threads.currentThread());
+            if (editText) {
+                x = editText.boundsCenterX();
+                y = editText.boundsTop() - 10;
+                click(x, y);
+            }
+            result = clickById("disableListenButton");
+        })
+    );
+
+    threadsArray.forEach((thread) => thread.join(CONFIG.timeout));
+
+    if (!result) {
         if (!isFirst) Logger.fatal("无法找到禁用听力按钮");
 
         Logger.error("无法找到禁用听力按钮，回到练习基地");
