@@ -3,7 +3,6 @@
 // prettier-ignore
 const CONFIG = {
     timeout: 5000,      // 查找元素的超时时间(毫秒)
-    username: "abwuge", // 用户名
     initialGoal: 0,     // 初始目标经验值(0表示自动从排行榜获取)
     logLevel: "info",   // 日志级别: "debug", "info", "warn", "error"
     optionDelay: 200    // 操作延时(毫秒)，防止操作过快
@@ -431,6 +430,22 @@ function mistakesPractice() {
 }
 
 function setGoal() {
+    Logger.info("查找用户名");
+    if (!clickById("tabProfile")) {
+        Logger.error("无法切换到个人资料页面");
+        goal = 1000;
+        return false;
+    }
+
+    let profileRecyclerView = id("profileRecyclerView").findOne(CONFIG.timeout);
+    let username = profileRecyclerView
+        .child(1)
+        .firstChild()
+        .firstChild()
+        .firstChild()
+        .text();
+    Logger.info("当前用户: " + username);
+
     Logger.info("设置目标经验值");
 
     if (!clickById("tabLeagues")) {
@@ -442,17 +457,12 @@ function setGoal() {
     try {
         // 尝试查找用户的经验值
         let userScoreText = id("usernameView")
-            .text(CONFIG.username)
+            .text(username)
             .findOne(CONFIG.timeout);
         if (!userScoreText) {
             throw new Error("未找到用户信息");
         }
-        userScoreText = userScoreText
-            .parent()
-            .parent()
-            .parent()
-            .findOne(id("xpView"))
-            .text();
+        userScoreText = userScoreText.parent(3).findOne(id("xpView")).text();
 
         // 尝试查找第一名的经验值
         let rankFirstScoreText = null;
@@ -502,8 +512,6 @@ function setGoal() {
         Logger.info("设置默认目标经验值: 1000");
     }
 
-    enterPracticeHub();
-
     return true;
 }
 
@@ -531,11 +539,9 @@ function main() {
     Logger.info("已启动Duolingo应用");
 
     // 设置目标
-    if (goal <= 0) {
-        setGoal();
-    } else {
-        enterPracticeHub();
-    }
+    if (goal <= 0) setGoal();
+
+    enterPracticeHub();
 
     // 主循环
     // let loopCount = 0;
